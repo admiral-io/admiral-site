@@ -274,7 +274,7 @@ export default function HomePage() {
       <section className="relative z-10 max-w-4xl mx-auto px-6 py-20">
         <AnimateOnScroll>
           <div className="landing-code-block">
-            <div className="flex items-center gap-2 mb-5 pb-4 border-b border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-5 pb-4 border-b border-white/6">
               <div className="w-3 h-3 rounded-full bg-red-400/60" />
               <div className="w-3 h-3 rounded-full bg-amber-400/60" />
               <div className="w-3 h-3 rounded-full bg-emerald-400/60" />
@@ -360,7 +360,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/[0.06] py-8 px-6">
+      <footer className="relative z-10 border-t border-white/6 py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#697586]">
           <Image
             src="/images/logo-white.svg"
