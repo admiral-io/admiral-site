@@ -72,7 +72,7 @@ function ArchLayer({
   return (
     <div className={`rounded-lg border ${c.border} ${c.bg} p-4`}>
       <span
-        className={`text-xs font-(family-name:--font-jetbrains) font-medium uppercase tracking-wider ${c.label} mb-3 block`}
+        className={`text-xs font-mono font-medium uppercase tracking-wider ${c.label} mb-3 block`}
       >
         {label}
       </span>
@@ -80,7 +80,7 @@ function ArchLayer({
         {items.map((item) => (
           <span
             key={item}
-            className={`text-xs px-2.5 py-1 rounded-md ${c.badge} font-(family-name:--font-jetbrains)`}
+            className={`text-xs px-2.5 py-1 rounded-md ${c.badge} font-mono`}
           >
             {item}
           </span>
@@ -109,9 +109,10 @@ export default function HomePage() {
         </h1>
 
         <p className="max-w-2xl text-lg text-[#94a3b8] leading-relaxed mb-10">
-          Admiral connects the tools your team already uses into a single system
-          that tracks every dependency, manages every environment, and keeps a
-          complete record of what is running where.
+          Your IaC provisions infrastructure. Your manifests deploy apps.
+          Admiral maintains the dependency graph across both so config flows
+          automatically, environments stay consistent, and every deployment is a
+          snapshot you can roll back.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 items-center">
@@ -123,7 +124,6 @@ export default function HomePage() {
             Why Admiral?
           </a>
         </div>
-
       </section>
 
       {/* The Problem */}
@@ -132,26 +132,29 @@ export default function HomePage() {
         className="relative z-10 max-w-3xl mx-auto px-6 py-28"
       >
         <h2 className="font-(family-name:--font-syne) font-bold text-3xl sm:text-4xl text-white tracking-tight mb-6">
-          The hidden coordination tax
+          Your tools don&apos;t talk to each other
         </h2>
         <div className="space-y-5 text-[#94a3b8] leading-relaxed">
           <p>
-            Setting up a database is one process. Deploying the app that uses it
-            is another. Getting the database address into the app&apos;s config
-            is a third, often done by hand.
+            IaC is good at provisioning infrastructure. Deployment tooling like
+            Helm and Kustomize are good at getting applications running.
+            They&apos;re different concerns for good reason, and pushing one to
+            do the other&apos;s job rarely ends well. But one produces outputs
+            the other needs as inputs, and so teams end up building the glue
+            themselves.
           </p>
           <p>
-            Multiply that by every service, every environment, every cloud
-            provider. Engineers spend significant time on operational plumbing
-            instead of building their product.{" "}
-            <span className="text-white/70">
-              Small teams feel this most acutely.
-            </span>
+            Use IaC to manage workloads and you hit state conflicts the moment a
+            CI pipeline bumps an image tag. Use deployment tooling for
+            infrastructure and you lose the guarantees IaC provides. Either way,
+            something has to give.
           </p>
-          <p className="text-white/30 text-sm font-(family-name:--font-jetbrains)">
-            Millions of production systems on Kubernetes. Hundreds of thousands
-            of orgs using Terraform. The vast majority have fewer than 50
-            engineers, and they all face this coordination problem.
+          <p>
+            Then there&apos;s environments. Dev, staging, and production
+            share most of the same configuration, but tooling generally
+            treats them as entirely separate: separate manifests, separate
+            values files, separate state. Standing up a new environment
+            means duplicating most of it and keeping it all in sync by hand.
           </p>
         </div>
       </section>
@@ -269,11 +272,11 @@ export default function HomePage() {
             <div className="w-3 h-3 rounded-full bg-red-400/60" />
             <div className="w-3 h-3 rounded-full bg-amber-400/60" />
             <div className="w-3 h-3 rounded-full bg-emerald-400/60" />
-            <span className="ml-3 text-xs text-white/30 font-(family-name:--font-jetbrains)">
+            <span className="ml-3 text-xs text-white/30 font-mono">
               terminal
             </span>
           </div>
-          <pre className="font-(family-name:--font-jetbrains) text-sm leading-7 overflow-x-auto">
+          <pre className="font-mono text-sm leading-7 overflow-x-auto">
             <code>
               <span className="text-white/30">$</span>{" "}
               <span className="text-amber-400">admctl</span>{" "}

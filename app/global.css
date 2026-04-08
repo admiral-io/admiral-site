@@ -104,7 +104,7 @@ html > body[data-scroll-locked] {
   background: rgba(245, 158, 11, 0.06);
   color: rgba(245, 158, 11, 0.85);
   font-size: 0.8rem;
-  font-family: var(--font-jetbrains);
+  font-family: var(--font-mono);
   letter-spacing: 0.02em;
 }
 
@@ -168,7 +168,7 @@ html > body[data-scroll-locked] {
   border-radius: 0.5rem;
   border: 1px solid rgba(91, 141, 239, 0.1);
   background: rgba(91, 141, 239, 0.04);
-  font-family: var(--font-jetbrains);
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   color: rgba(189, 211, 252, 0.5);
   backdrop-filter: blur(8px);
@@ -179,7 +179,7 @@ html > body[data-scroll-locked] {
   border-radius: 9999px;
   border: 1px solid rgba(91, 141, 239, 0.2);
   background: rgba(91, 141, 239, 0.08);
-  font-family: var(--font-jetbrains);
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   color: rgba(189, 211, 252, 0.8);
   letter-spacing: 0.01em;

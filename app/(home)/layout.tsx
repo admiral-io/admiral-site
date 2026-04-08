@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Admiral — Open Source Platform Orchestrator",
   description:
-    "Orchestrate application deployments across Kubernetes clusters with a single binary. Manage environments, variables, and deployments through a powerful gRPC API.",
+    "Open source platform orchestrator that bridges IaC and app deployments. Dependency graph across the full stack, environment-aware config, and deterministic rollbacks.",
 };
 
 export default function Layout({ children }: LayoutProps<"/">) {
