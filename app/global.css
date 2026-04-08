@@ -11,3 +11,218 @@ html > body[data-scroll-locked] {
   margin-right: 0px !important;
   --removed-body-scroll-bar-size: 0px !important;
 }
+
+/* ─── Admiral Docs Theme ─── */
+/* Navy primary: #1b2a4a (light) / #5b8def (dark-lifted) */
+/* Amber accent: #d97706 / #f59e0b */
+
+@theme {
+  /* Light mode: deep navy as primary accent */
+  --color-fd-primary: hsl(220, 47%, 20%);           /* #1b2a4a */
+  --color-fd-primary-foreground: hsl(0, 0%, 100%);
+  --color-fd-ring: hsl(220, 47%, 30%);
+  --color-fd-background: hsl(210, 33%, 98%);         /* #f8fafc */
+  --color-fd-muted: hsl(210, 20%, 95%);              /* #eef2f6 */
+  --color-fd-card: hsl(210, 20%, 96%);
+  --color-fd-accent: hsla(220, 47%, 20%, 12%);
+  --color-fd-accent-foreground: hsl(220, 47%, 20%);
+}
+
+.dark {
+  /* Dark mode: lifted Admiral blue as primary */
+  --color-fd-primary: hsl(220, 80%, 64%);            /* #5b8def */
+  --color-fd-primary-foreground: hsl(220, 40%, 7%);  /* #0b0f19 */
+  --color-fd-ring: hsl(220, 70%, 55%);
+  --color-fd-background: hsl(222, 30%, 7%);           /* #0b0f19 */
+  --color-fd-foreground: hsl(213, 27%, 90%);          /* #e2e8f0 */
+  --color-fd-muted: hsl(222, 22%, 13%);               /* #1e2536 */
+  --color-fd-muted-foreground: hsla(215, 16%, 62%, 0.8); /* #94a3b8 */
+  --color-fd-popover: hsl(222, 25%, 10%);              /* #111827 */
+  --color-fd-popover-foreground: hsl(213, 27%, 87%);
+  --color-fd-card: hsl(222, 25%, 10%);
+  --color-fd-card-foreground: hsl(213, 27%, 97%);
+  --color-fd-border: hsla(220, 30%, 30%, 20%);
+  --color-fd-secondary: hsl(222, 22%, 13%);
+  --color-fd-secondary-foreground: hsl(213, 27%, 90%);
+  --color-fd-accent: hsla(220, 80%, 64%, 15%);
+  --color-fd-accent-foreground: hsl(220, 80%, 75%);
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: hsl(222, 22%, 11%);
+  --color-fd-secondary: hsl(222, 22%, 13%);
+  --color-fd-muted-foreground: hsl(215, 16%, 55%);
+}
+
+/* ─── Admiral Brand Tokens ─── */
+
+/* ─── Landing Page ─── */
+
+.landing-page {
+  background: #0b0f19;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Subtle radial vignette */
+.landing-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 30%,
+    rgba(27, 42, 74, 0.15) 0%,
+    #0b0f19 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Top-down gradient fade over the particle canvas */
+.landing-page::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(11, 15, 25, 0.3) 50%,
+    rgba(11, 15, 25, 0.7) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.landing-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.06);
+  color: rgba(245, 158, 11, 0.85);
+  font-size: 0.8rem;
+  font-family: var(--font-jetbrains);
+  letter-spacing: 0.02em;
+}
+
+.landing-gradient-text {
+  background: linear-gradient(135deg, #5b8def 0%, #93b8f9 40%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.landing-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #0b0f19;
+  font-family: var(--font-syne);
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.15);
+}
+
+.landing-btn-primary:hover {
+  box-shadow: 0 0 40px rgba(245, 158, 11, 0.3);
+  transform: translateY(-1px);
+}
+
+.landing-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(91, 141, 239, 0.2);
+  background: rgba(91, 141, 239, 0.05);
+  color: rgba(189, 211, 252, 0.8);
+  font-family: var(--font-syne);
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.landing-btn-secondary:hover {
+  border-color: rgba(91, 141, 239, 0.35);
+  background: rgba(91, 141, 239, 0.1);
+  color: rgba(189, 211, 252, 1);
+}
+
+.landing-install-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(91, 141, 239, 0.1);
+  background: rgba(91, 141, 239, 0.04);
+  font-family: var(--font-jetbrains);
+  font-size: 0.82rem;
+  color: rgba(189, 211, 252, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.landing-component-badge {
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(91, 141, 239, 0.2);
+  background: rgba(91, 141, 239, 0.08);
+  font-family: var(--font-jetbrains);
+  font-size: 0.78rem;
+  color: rgba(189, 211, 252, 0.8);
+  letter-spacing: 0.01em;
+}
+
+.landing-card {
+  padding: 1.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(91, 141, 239, 0.08);
+  background: rgba(30, 37, 54, 0.4);
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+}
+
+.landing-card:hover {
+  border-color: rgba(91, 141, 239, 0.15);
+  background: rgba(30, 37, 54, 0.6);
+  transform: translateY(-2px);
+}
+
+.landing-card-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  background: rgba(91, 141, 239, 0.08);
+  color: rgba(189, 211, 252, 0.6);
+  border: 1px solid rgba(91, 141, 239, 0.1);
+}
+
+.landing-card-icon--accent {
+  background: rgba(245, 158, 11, 0.1);
+  color: rgba(245, 158, 11, 0.8);
+  border-color: rgba(245, 158, 11, 0.15);
+}
+
+.landing-code-block {
+  padding: 1.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(91, 141, 239, 0.08);
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(12px);
+}
