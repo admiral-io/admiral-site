@@ -1,6 +1,5 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import Image from "next/image";
-import { getFirstApiReferencePageUrl } from "./source";
 import { gitConfig } from "./shared";
 
 export function baseOptions(): BaseLayoutProps {
@@ -26,11 +25,6 @@ export function baseOptions(): BaseLayoutProps {
       ),
     },
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
-    links: [
-      {
-        text: "API Reference",
-        url: getFirstApiReferencePageUrl(),
-      },
-    ],
+    links: [],
   };
 }

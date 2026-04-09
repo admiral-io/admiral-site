@@ -23,7 +23,7 @@ export const source = loader(
   multiple({
     docs: docs.toFumadocsSource(),
     openapi: await openapiSource(openapi, {
-      baseDir: "api-reference",
+      baseDir: "api",
       per: "operation",
       groupBy: getOpenAPIGroupName,
     }),
@@ -33,14 +33,6 @@ export const source = loader(
     plugins: [lucideIconsPlugin(), openapiPlugin()],
   },
 );
-
-export function getFirstApiReferencePageUrl(): string {
-  const openapiPages = source
-    .getPages()
-    .filter((p) => p.path.startsWith("api-reference/"))
-    .sort((a, b) => a.url.localeCompare(b.url));
-  return openapiPages[0]?.url ?? docsRoute;
-}
 
 export function getPageImage(page: InferPageType<typeof source>) {
   const segments = [...page.slugs, "image.png"];

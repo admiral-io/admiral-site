@@ -1,0 +1,18 @@
+---
+title: Object Storage
+description: Configure artifact and bundle storage backends
+---
+
+Admiral uses object storage for persistent artifacts and generated bundle data.
+
+## Supported backend classes
+
+- S3-compatible object stores.
+- AWS S3.
+- Google Cloud Storage (GCS).
+
+## Guidance
+
+- Use environment-specific buckets/prefixes.
+- Enable encryption, versioning, and lifecycle policies.
+- Ensure credentials are scoped to least privilege.

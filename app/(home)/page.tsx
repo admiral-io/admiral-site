@@ -285,7 +285,7 @@ export default function HomePage() {
             <pre className="font-mono text-sm leading-7 overflow-x-auto">
               <code>
                 <span className="text-white/30">$</span>{" "}
-                <span className="text-amber-400">admctl</span>{" "}
+                <span className="text-amber-400">admiral</span>{" "}
                 <span className="text-white/70">app create</span>{" "}
                 <span className="text-blue-300">billing-api</span>
                 {"\n"}
@@ -294,7 +294,7 @@ export default function HomePage() {
                 </span>
                 {"\n\n"}
                 <span className="text-white/30">$</span>{" "}
-                <span className="text-amber-400">admctl</span>{" "}
+                <span className="text-amber-400">admiral</span>{" "}
                 <span className="text-white/70">env create</span>{" "}
                 <span className="text-blue-300">production</span>{" "}
                 <span className="text-white/40">
@@ -306,9 +306,9 @@ export default function HomePage() {
                 </span>
                 {"\n\n"}
                 <span className="text-white/30">$</span>{" "}
-                <span className="text-amber-400">admctl</span>{" "}
+                <span className="text-amber-400">admiral</span>{" "}
                 <span className="text-white/70">var set</span>{" "}
-                <span className="text-blue-300">REPLICAS=3</span>{" "}
+                <span className="text-blue-300">IMAGE_TAG=a3f7c21</span>{" "}
                 <span className="text-white/40">
                   --app billing-api --env production
                 </span>
@@ -316,7 +316,7 @@ export default function HomePage() {
                 <span className="text-emerald-400/70">✓ Variable set</span>
                 {"\n\n"}
                 <span className="text-white/30">$</span>{" "}
-                <span className="text-amber-400">admctl</span>{" "}
+                <span className="text-amber-400">admiral</span>{" "}
                 <span className="text-white/70">deploy</span>{" "}
                 <span className="text-blue-300">billing-api</span>{" "}
                 <span className="text-white/40">--env production</span>

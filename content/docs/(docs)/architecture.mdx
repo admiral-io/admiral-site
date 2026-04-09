@@ -1,0 +1,21 @@
+---
+title: Architecture
+description: High-level architecture of Admiral components
+---
+
+Admiral is composed of a server control plane and execution components.
+
+## Control plane
+
+- **Admiral Server**: web console + API.
+- **PostgreSQL**: platform state and metadata.
+- **Object storage**: artifact and bundle persistence.
+
+## Execution components
+
+- **Cluster Agents** deployed into Kubernetes clusters.
+- **IaC Runner** for Terraform-oriented workflows.
+
+## Interface layer
+
+- CLI, Terraform Provider, OpenAPI, and Go API client integrations.

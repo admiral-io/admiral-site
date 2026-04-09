@@ -1,6 +1,7 @@
 {
   "title": "API Reference",
   "description": "Admiral REST API endpoints",
+  "icon": "Braces",
   "root": true,
   "pages": ["index", "..."]
 }

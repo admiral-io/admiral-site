@@ -1,0 +1,16 @@
+---
+title: Database Migrations
+description: Migration workflow expectations for PostgreSQL
+---
+
+Admiral depends on schema migrations to keep control-plane state aligned with the running version.
+
+## Operational guidance
+
+- Treat migrations as part of release rollout.
+- Verify migration completion before enabling traffic.
+- Keep backup and rollback procedures documented for your environment.
+
+## Status
+
+Detailed migration command examples and failure-recovery runbooks are being added.

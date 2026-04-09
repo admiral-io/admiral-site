@@ -1,0 +1,19 @@
+---
+title: Authentication Model
+description: PAT and SAT responsibilities across workflows
+---
+
+Admiral uses different token types for human and machine paths.
+
+## PAT
+
+- User-scoped access created via Admiral console.
+
+## SAT
+
+- Service-scoped token used by agent and runner components.
+
+## Typical workflow
+
+1. Create PAT/SAT resources from the control plane.
+2. Supply SATs to runtime components during bootstrap.

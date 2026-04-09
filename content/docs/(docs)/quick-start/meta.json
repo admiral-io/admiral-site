@@ -1,0 +1,8 @@
+{
+  "title": "Quick Start",
+  "pages": [
+    "prerequisites",
+    "install-server",
+    "bootstrap-first-cluster"
+  ]
+}

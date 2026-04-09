@@ -1,0 +1,15 @@
+---
+title: Component Model
+description: Responsibilities of each Admiral component
+---
+
+Admiral separates control-plane concerns from runtime execution.
+
+## Components
+
+- **Server**: central orchestration and API surface.
+- **Agent**: cluster-local reconciliation and reporting.
+- **IaC Runner**: infrastructure execution path.
+- **Interfaces**: human and automation entrypoints.
+
+This model enables teams to scale deployments while keeping responsibilities explicit.

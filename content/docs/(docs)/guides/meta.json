@@ -1,0 +1,9 @@
+{
+  "title": "Guides",
+  "pages": [
+    "server-deployment",
+    "agent-lifecycle",
+    "iac-runner-lifecycle",
+    "authentication-model"
+  ]
+}

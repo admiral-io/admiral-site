@@ -1,6 +1,7 @@
 {
   "title": "Docs",
   "description": "Admiral platform documentation",
+  "icon": "BookOpen",
   "root": true,
   "pages": [
     "---Introduction---",
@@ -8,7 +9,7 @@
     "architecture",
     "component-model",
     "release-status",
-    "---Quick Start---",
+    "---Setup---",
     "...quick-start",
     "---Guides---",
     "...guides",
