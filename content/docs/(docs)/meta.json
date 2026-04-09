@@ -1,0 +1,20 @@
+{
+  "title": "Docs",
+  "description": "Admiral platform documentation",
+  "root": true,
+  "pages": [
+    "---Introduction---",
+    "index",
+    "architecture",
+    "component-model",
+    "release-status",
+    "---Quick Start---",
+    "...quick-start",
+    "---Guides---",
+    "...guides",
+    "---Reference---",
+    "...reference",
+    "---Operations---",
+    "...operations"
+  ]
+}

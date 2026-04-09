@@ -1,6 +1,7 @@
-import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
-import Image from 'next/image';
-import { gitConfig } from './shared';
+import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
+import Image from "next/image";
+import { getFirstApiReferencePageUrl } from "./source";
+import { gitConfig } from "./shared";
 
 export function baseOptions(): BaseLayoutProps {
   return {
@@ -10,16 +11,16 @@ export function baseOptions(): BaseLayoutProps {
           <Image
             src="/images/logo.svg"
             alt="Admiral"
-            width={90}
-            height={25}
-            className="h-5 w-auto dark:hidden"
+            width={120}
+            height={32}
+            className="h-7 w-auto dark:hidden"
           />
           <Image
             src="/images/logo-white.svg"
             alt="Admiral"
-            width={90}
-            height={25}
-            className="h-5 w-auto hidden dark:block"
+            width={120}
+            height={32}
+            className="hidden h-7 w-auto dark:block"
           />
         </>
       ),
@@ -27,8 +28,8 @@ export function baseOptions(): BaseLayoutProps {
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
     links: [
       {
-        text: 'API Reference',
-        url: '/docs/openapi',
+        text: "API Reference",
+        url: getFirstApiReferencePageUrl(),
       },
     ],
   };

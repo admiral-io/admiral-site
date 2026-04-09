@@ -16,8 +16,10 @@ export default function Layout({ children }: LayoutProps<'/'>) {
       className={syne.variable}
       suppressHydrationWarning
     >
-      <body className="flex flex-col min-h-screen">
-        <RootProvider>{children}</RootProvider>
+      <body className="flex flex-col min-h-screen" suppressHydrationWarning>
+        <RootProvider>
+          {children}
+        </RootProvider>
         <SpeedInsights />
       </body>
     </html>

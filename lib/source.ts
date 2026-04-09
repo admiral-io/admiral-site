@@ -5,12 +5,27 @@ import { openapiPlugin, openapiSource } from "fumadocs-openapi/server";
 import { docsContentRoute, docsImageRoute, docsRoute } from "./shared";
 import { openapi } from "@/lib/openapi";
 
-// See https://fumadocs.dev/docs/headless/source-api for more info
+function getOpenAPIGroupName(entry: {
+  item: { path?: string; name?: string };
+}): string {
+  const sourcePath = entry.item.path ?? entry.item.name ?? "";
+  const pathSegments = sourcePath.split("/").filter(Boolean);
+  const resourceSegment =
+    pathSegments[0] === "api" && pathSegments[1] === "v1"
+      ? pathSegments[2]
+      : pathSegments[0];
+
+  const cleaned = resourceSegment?.replace(/[{}]/g, "").trim().toLowerCase();
+  return cleaned && cleaned.length > 0 ? cleaned : "general";
+}
+
 export const source = loader(
   multiple({
     docs: docs.toFumadocsSource(),
     openapi: await openapiSource(openapi, {
-      baseDir: "openapi",
+      baseDir: "api-reference",
+      per: "operation",
+      groupBy: getOpenAPIGroupName,
     }),
   }),
   {
@@ -18,6 +33,14 @@ export const source = loader(
     plugins: [lucideIconsPlugin(), openapiPlugin()],
   },
 );
+
+export function getFirstApiReferencePageUrl(): string {
+  const openapiPages = source
+    .getPages()
+    .filter((p) => p.path.startsWith("api-reference/"))
+    .sort((a, b) => a.url.localeCompare(b.url));
+  return openapiPages[0]?.url ?? docsRoute;
+}
 
 export function getPageImage(page: InferPageType<typeof source>) {
   const segments = [...page.slugs, "image.png"];
