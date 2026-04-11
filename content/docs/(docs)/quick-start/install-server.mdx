@@ -1,15 +1,234 @@
 ---
 title: Install Server
-description: Deploy the Admiral control plane
+description: Deploy the Admiral control plane in demo or production mode
 ---
 
-Deploy Admiral server with your preferred runtime:
+import { Steps } from 'fumadocs-ui/components/steps';
 
-- Helm chart deployment (recommended on Kubernetes)
-- Container-based deployment
+This guide walks through deploying the Admiral server using the official Helm chart. Start with **demo mode** to get a working instance in minutes, then see [Server Deployment](/docs/guides/server-deployment) for production planning.
 
-Then verify:
+## Architecture overview
 
-- API is reachable
-- Console is reachable
-- Database migrations are applied
+An Admiral deployment consists of these components:
+
+| Component | Role | Demo mode | Production |
+|-----------|------|-----------|------------|
+| **Admiral Server** | API, console, and orchestration engine | Helm-managed | Helm-managed |
+| **PostgreSQL** | Platform state and metadata | Built-in subchart | External managed instance |
+| **Object Storage** | Artifact and bundle persistence | Built-in MinIO subchart | External S3, S3-compatible, or GCS |
+| **Dex** | OIDC authentication provider | Built-in (bundled templates) | External IdP (Okta, Azure AD, etc.) |
+| **Ingress** | HTTP routing and TLS termination | NGINX via KinD | Your cluster's ingress or Gateway API |
+
+---
+
+## Demo mode deployment
+
+Demo mode provisions all dependencies as in-cluster services using a single `demo-values.yaml` file. It's designed for evaluation, local development, and learning the platform.
+
+### What you'll get
+
+- A single-node Kubernetes cluster via KinD
+- Admiral Server with debug logging and profiling enabled
+- PostgreSQL and MinIO running as Helm subcharts
+- Dex configured with a static demo user
+- NGINX ingress routing everything through `http://admiral.127.0.0.1.nip.io`
+
+### Automated setup
+
+The fastest path is the included `make dev` target, which runs the full setup script:
+
+```bash
+git clone https://github.com/admiral-platform/admiral-helm.git
+cd admiral-helm
+make dev
+```
+
+This single command:
+1. Creates a KinD cluster named `admiral` (or reuses an existing one)
+2. Installs the NGINX ingress controller
+3. Builds Helm chart dependencies (PostgreSQL, MinIO)
+4. Installs Admiral with `demo-values.yaml`
+
+When it completes, you'll see:
+
+```
+===========================================
+  Admiral is ready!
+===========================================
+
+  URL: http://admiral.127.0.0.1.nip.io
+
+  Demo credentials:
+    Email:    admin@example.com
+    Password: shipitnow
+```
+
+<Callout type="info">
+The ingress controller may take 1–2 minutes to become fully ready after the script completes. If the URL doesn't load immediately, wait and retry.
+</Callout>
+
+### Manual setup
+
+If you prefer to run each step yourself or need to customize the process:
+
+<Steps>
+
+### Create the KinD cluster
+
+```bash
+kind create cluster --name admiral --config kind/cluster.yaml
+```
+
+The cluster config maps ports 80 and 443 from the container to your host and labels the node as `ingress-ready`:
+
+```yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.32.3
+    labels:
+      ingress-ready: "true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+```
+
+### Install the NGINX ingress controller
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+kubectl rollout status deployment ingress-nginx-controller \
+  --namespace ingress-nginx \
+  --timeout=120s
+```
+
+### Build chart dependencies
+
+```bash
+helm dependency build charts/admiral
+```
+
+This pulls the PostgreSQL and MinIO subcharts into `charts/admiral/charts/`.
+
+### Install Admiral
+
+```bash
+helm upgrade --install admiral charts/admiral \
+  -f charts/admiral/demo-values.yaml \
+  --namespace default \
+  --wait \
+  --timeout 5m
+```
+
+</Steps>
+
+### Demo values explained
+
+The `demo-values.yaml` file enables all built-in components with lightweight resource limits:
+
+```yaml
+# Ingress: routes traffic through NGINX on a nip.io hostname
+ingress:
+  enabled: true
+  className: nginx
+  host: admiral.127.0.0.1.nip.io
+
+# Server: debug logging and profiling for development
+server:
+  logLevel: debug
+  enablePprof: true
+
+# Database: built-in PostgreSQL with minimal storage
+postgresql:
+  enabled: true
+  auth:
+    password: "shipitnow"
+  persistence: 512Mi
+
+# Object storage: built-in MinIO with minimal storage
+minio:
+  enabled: true
+  rootPassword: "shipitnow"
+  persistence: 512Mi
+
+# Authentication: Dex with a static demo user
+oauth2:
+  demoPassword: "shipitnow"
+
+dex:
+  enabled: true
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+
+# Server resource limits
+admiral:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+```
+
+### Sign in
+
+1. Open [http://admiral.127.0.0.1.nip.io](http://admiral.127.0.0.1.nip.io) in your browser
+2. Click **Log in with Email**
+3. Enter the demo credentials:
+   - **Email:** `admin@example.com`
+   - **Password:** `shipitnow`
+
+<Callout type="warn">
+If you didn't set `oauth2.demoPassword` explicitly, the chart auto-generates a random password. Retrieve it with:
+
+```bash
+kubectl get secret admiral-oauth2 \
+  -o jsonpath='{.data.dex-demo-password}' | base64 -d; echo
+```
+</Callout>
+
+### Verify the deployment
+
+Check that all pods are running:
+
+```bash
+kubectl get pods
+```
+
+You should see pods for Admiral Server, PostgreSQL, MinIO, and Dex, all in `Running` status.
+
+Verify the API is responding:
+
+```bash
+curl -s http://admiral.127.0.0.1.nip.io/healthz
+```
+
+### Tear down
+
+When you're done evaluating:
+
+```bash
+make dev-down
+```
+
+Or manually:
+
+```bash
+kind delete cluster --name admiral
+```
+
+---
+
+## What's next
+
+- [Bootstrap your first cluster](/docs/quick-start/bootstrap-first-cluster). Connect a Kubernetes cluster to Admiral by deploying the cluster agent.
+- [Server Deployment](/docs/guides/server-deployment). Plan and configure a production-grade deployment with external services.
+- [Authentication Model](/docs/guides/authentication-model). Understand how OIDC, tokens, and access control work together.

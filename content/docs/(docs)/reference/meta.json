@@ -3,6 +3,6 @@
   "pages": [
     "cli",
     "terraform-provider",
-    "go-api-client"
+    "go-sdk"
   ]
 }

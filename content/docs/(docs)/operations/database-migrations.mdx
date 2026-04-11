@@ -1,16 +1,174 @@
 ---
 title: Database Migrations
-description: Migration workflow expectations for PostgreSQL
+description: How Admiral manages PostgreSQL schema migrations during deployments
 ---
 
-Admiral depends on schema migrations to keep control-plane state aligned with the running version.
+Admiral depends on schema migrations to keep the database aligned with the running server version. Migrations run automatically as part of the Helm release lifecycle, but you can also run them manually using the `admiral-server` binary.
+
+<Callout type="warn">
+  Always take a database snapshot before applying or rolling back migrations.
+  Schema changes can be destructive, and having a restore point ensures you can
+  recover if something goes wrong.
+</Callout>
+
+## Running migrations manually
+
+If you manage migrations outside of Helm (for example, as a separate CI step or during incident recovery), you can run them directly with the `admiral-server` binary.
+
+### Getting the binary
+
+The `admiral-server` binary is available through the same channels as the rest of the Admiral toolchain:
+
+```bash
+# macOS
+brew install admiral-io/tap/admiral-server
+
+# Debian / Ubuntu
+sudo dpkg -i admiral-server_*.deb
+
+# Red Hat / CentOS / Fedora
+sudo rpm -i admiral-server_*.rpm
+
+# Docker (useful for one-off commands without a local install)
+docker run --rm ghcr.io/admiral-io/admiral-server:latest migrate --help
+```
+
+Linux packages and direct binary downloads are available on the [GitHub Releases](https://github.com/admiral-io/admiral/releases) page.
+
+### The migrate command
+
+The `admiral-server` binary needs a config file that contains the database connection details. Pass it with the `--config` flag:
+
+```bash
+# Apply all pending migrations (up)
+admiral-server --config config.yaml migrate
+
+# Apply without confirmation prompts (used in CI and Helm hooks)
+admiral-server --config config.yaml migrate --force
+
+# Rollback the last applied migration (down)
+admiral-server --config config.yaml migrate --down
+
+# Reset a dirty migration state
+admiral-server --config config.yaml migrate --reset
+```
+
+| Flag            | Description                                                            |
+| --------------- | ---------------------------------------------------------------------- |
+| `--force`, `-f` | Skip the interactive confirmation prompt                               |
+| `--down`        | Roll back one migration step instead of applying pending ones          |
+| `--reset`       | Clear the dirty flag on a failed migration without changing the schema |
+
+The `--down` and `--reset` flags are mutually exclusive.
+
+### Up (default)
+
+Applies all pending migrations in order. If the database is already up to date, it reports "No pending migrations" and exits cleanly. This is the operation that runs during Helm installs and upgrades.
+
+### Down
+
+Rolls back exactly one migration step. The command displays the current migration version and asks for confirmation before proceeding. Use this when you need to undo the most recent schema change, for example before downgrading to a previous Admiral version.
+
+### Reset
+
+Clears the dirty flag on a migration that failed partway through. When a migration fails, the schema may be left in a "dirty" state that blocks future migrations. Reset marks the current version as clean so you can retry. If the schema is not dirty, the command is a no-op.
+
+<Callout type="warn">
+  Resetting a dirty migration does not undo partial schema changes. After a
+  reset, inspect the database state and either manually fix the schema or
+  restore from your snapshot before retrying.
+</Callout>
+
+## Helm migration modes
+
+When deploying via Helm, the chart can run migrations automatically. The behavior is controlled by the `migrations.mode` value:
+
+| Mode             | Behavior                                                     | When to use                                                                    |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `hook` (default) | Runs as a Helm pre-install/pre-upgrade hook with weight `-5` | Standard deployments. Migrations complete before the new server version starts |
+| `job`            | Creates a Kubernetes Job without Helm hook annotations       | When you want to trigger migrations manually or through a CI pipeline          |
+| `skip`           | No migration job is created                                  | When migrations are managed entirely outside of Helm                           |
+
+```yaml
+migrations:
+  mode: hook # hook | job | skip
+```
+
+### Hook mode (default)
+
+In hook mode, the migration runs as a Kubernetes Job with these Helm annotations:
+
+- `helm.sh/hook: pre-install,pre-upgrade` runs before the main deployment
+- `helm.sh/hook-weight: "-5"` ensures it runs before other hooks
+- `helm.sh/hook-delete-policy: before-hook-creation` cleans up previous migration jobs
+
+This means:
+
+1. Helm creates the migration Job
+2. The Job runs `admiral-server migrate --force` against the database
+3. Once the Job succeeds, Helm proceeds to deploy/upgrade the server
+4. If the Job fails, the Helm release is rolled back
+
+### Job mode
+
+In job mode, the chart creates a standard Kubernetes Job (no hook annotations). You control when it runs, which is useful if you run migrations in a separate CI step before deploying the new server version.
+
+```bash
+# Apply just the migration job
+helm template admiral admiral/admiral -f values.yaml \
+  -s templates/migrations-job.yaml | kubectl apply -f -
+
+# Wait for completion
+kubectl wait --for=condition=complete job/admiral-migrations --timeout=120s
+
+# Then upgrade the server
+helm upgrade admiral admiral/admiral -f values.yaml
+```
+
+## Migration Job configuration
+
+The migration Job inherits the same database configuration, secrets, and environment variables as the main deployment. It uses the same container image and config file. The only difference is the entrypoint command.
+
+Key settings:
+
+```yaml
+migrations:
+  mode: hook
+  backoffLimit: 3 # Retry failed migrations up to 3 times
+  restartPolicy: Never # Don't restart the pod on failure
+```
 
 ## Operational guidance
 
-- Treat migrations as part of release rollout.
-- Verify migration completion before enabling traffic.
-- Keep backup and rollback procedures documented for your environment.
+- **Snapshot first**: Take a database snapshot before every upgrade. Managed PostgreSQL services (RDS, Cloud SQL, AlloyDB) all support on-demand snapshots. For self-hosted instances, use `pg_dump` or your backup tooling.
+- **Rollback**: Use `admiral-server migrate --down` to undo the most recent migration. For multi-step rollbacks, run `--down` repeatedly. Each invocation rolls back one version.
+- **Dirty state recovery**: If a migration fails partway through, the schema is marked dirty. Run `admiral-server migrate --reset` to clear the flag, then restore from your snapshot and retry.
+- **Monitoring**: Watch the migration Job logs during upgrades:
 
-## Status
+```bash
+kubectl logs job/admiral-migrations -n admiral -f
+```
 
-Detailed migration command examples and failure-recovery runbooks are being added.
+- **Timeouts**: The default Helm `--timeout` applies to the migration Job. For large databases or slow connections, increase it:
+
+```bash
+helm upgrade --install admiral admiral/admiral \
+  -f values.yaml \
+  --timeout 10m
+```
+
+## Database user privileges
+
+The database user configured for Admiral must have DDL privileges on the target database:
+
+- `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`
+- `CREATE INDEX`, `DROP INDEX`
+- `INSERT`, `UPDATE`, `DELETE`, `SELECT`
+
+In most managed PostgreSQL services, granting the user ownership of the database is the simplest approach:
+
+```sql
+CREATE DATABASE admiral;
+CREATE USER admiral WITH PASSWORD 'your-password';
+GRANT ALL PRIVILEGES ON DATABASE admiral TO admiral;
+```

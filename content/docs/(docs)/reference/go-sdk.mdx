@@ -1,0 +1,175 @@
+---
+title: Go SDK
+description: Integrate Admiral into Go applications using the official SDK
+---
+
+The Admiral Go SDK provides a typed client for the Admiral API. Use it to build tools, operators, and integrations that manage Admiral resources programmatically.
+
+<Callout type="info">
+  The SDK is under active development. The API surface may change between
+  releases. This page covers the stable client setup and a basic usage example.
+</Callout>
+
+## Installation
+
+```bash
+go get go.admiral.io/sdk
+```
+
+Requires Go 1.26+.
+
+## Client setup
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+
+	"go.admiral.io/sdk/client"
+)
+
+func main() {
+	ctx := context.Background()
+
+	c, err := client.New(ctx, client.Config{
+		HostPort:  "api.admiral.example.com:443",
+		AuthToken: os.Getenv("ADMIRAL_TOKEN"),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+}
+```
+
+### Configuration options
+
+| Field                           | Type          | Default              | Description                       |
+| none----------------------------- | none----------- | none------------------ | none------------------------------- |
+| `HostPort`                      | `string`      | `api.admiral.io:443` | Admiral API server address        |
+| `AuthToken`                     | `string`      | none                   | Authentication token (PAT or SAT) |
+| `AuthScheme`                    | `string`      | `Bearer`             | Authorization header scheme       |
+| `ConnectionOptions.Insecure`    | `bool`        | `false`              | Use plaintext (no TLS)            |
+| `ConnectionOptions.DialTimeout` | `duration`    | `30s`                | Connection timeout                |
+| `ConnectionOptions.TLSConfig`   | `*tls.Config` | `nil`                | Custom TLS configuration          |
+| `Logger`                        | `Logger`      | no-op                | Logger implementation             |
+
+### Logging
+
+The SDK ships with three logger implementations:
+
+```go
+// Silent (default)
+client.NewNoOpLogger()
+
+// Standard library writer
+client.NewStdLogger(os.Stderr, client.LevelInfo)
+
+// slog integration
+client.NewSlogLogger(slog.Default())
+```
+
+## Usage example
+
+This example creates an application, reads it back, and then cleans up:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+
+	"go.admiral.io/sdk/client"
+	applicationv1 "go.admiral.io/sdk/proto/admiral/application/v1"
+)
+
+func main() {
+	ctx := context.Background()
+
+	c, err := client.New(ctx, client.Config{
+		HostPort:  "api.admiral.example.com:443",
+		AuthToken: os.Getenv("ADMIRAL_TOKEN"),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+
+	// Create an application
+	createResp, err := c.Application().CreateApplication(ctx,
+		&applicationv1.CreateApplicationRequest{
+			Name:        "my-service",
+			Description: strPtr("Example application"),
+			Labels: map[string]string{
+				"team": "platform",
+			},
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Created: %s (ID: %s)\n",
+		createResp.Application.Name,
+		createResp.Application.Id,
+	)
+
+	// Read it back
+	getResp, err := c.Application().GetApplication(ctx,
+		&applicationv1.GetApplicationRequest{
+			ApplicationId: createResp.Application.Id,
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Retrieved: %s\n", getResp.Application.Name)
+
+	// Clean up
+	_, err = c.Application().DeleteApplication(ctx,
+		&applicationv1.DeleteApplicationRequest{
+			ApplicationId: createResp.Application.Id,
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Deleted application")
+}
+
+func strPtr(s string) *string {
+	return &s
+}
+```
+
+## Error handling
+
+The SDK returns standard gRPC errors. Use the `status` package to inspect error codes:
+
+```go
+resp, err := c.Application().GetApplication(ctx, req)
+if err != nil {
+	st, ok := status.FromError(err)
+	if ok {
+		switch st.Code() {
+		case codes.NotFound:
+			log.Println("resource does not exist")
+		case codes.Unauthenticated:
+			log.Println("invalid or expired token")
+		case codes.PermissionDenied:
+			log.Println("insufficient permissions")
+		default:
+			log.Fatalf("API error (%s): %s", st.Code(), st.Message())
+		}
+	}
+}
+```
+
+The `codes` and `status` packages come from `google.golang.org/grpc/codes` and `google.golang.org/grpc/status`.
+
+Refer to the [API reference](/docs/api) for details on request and response types for each service.

@@ -1,15 +1,219 @@
 ---
 title: CLI
-description: Admiral CLI usage and installation options
+description: Install and configure the Admiral command-line interface
 ---
 
-## Installation options
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
-- Homebrew
-- GitHub Releases artifacts
-- Install script (planned)
+The Admiral CLI (`admiral`) is the command-line interface for interacting with the Admiral platform. Use it to manage applications, inspect platform resources, and drive CI/CD automation.
 
-## Primary usage
+<Callout type="info">
+  The CLI is under active development. This page covers installation and
+  configuration. Command reference documentation will be added as the CLI
+  stabilizes.
+</Callout>
 
-- Bootstrap and inspect platform resources
-- Drive CI/CD automation
+## Installation
+
+<Tabs items={["macOS (Homebrew)", "Windows (Scoop)", "Linux", "Docker", "From source"]}>
+
+<Tab value="macOS (Homebrew)">
+
+Install via the Admiral Homebrew tap:
+
+```bash
+brew install admiral-io/tap/admiral
+```
+
+To upgrade:
+
+```bash
+brew upgrade admiral
+```
+
+To uninstall:
+
+```bash
+brew uninstall admiral
+```
+
+Supports both Intel (x86_64) and Apple Silicon (arm64). Shell completions for bash, zsh, and fish are installed automatically.
+
+</Tab>
+
+<Tab value="Windows (Scoop)">
+
+Install via the Admiral Scoop bucket:
+
+```powershell
+scoop bucket add admiral-io https://github.com/admiral-io/scoop-bucket
+scoop install admiral-io/admiral
+```
+
+To upgrade:
+
+```powershell
+scoop update admiral
+```
+
+To uninstall:
+
+```powershell
+scoop uninstall admiral
+```
+
+Supports both x86_64 and arm64 Windows.
+
+</Tab>
+
+<Tab value="Linux">
+
+#### Package managers
+
+Pre-built packages are available for common Linux distributions:
+
+| Format         | Distributions           |
+| -------------- | ----------------------- |
+| `.deb`         | Debian, Ubuntu          |
+| `.rpm`         | Red Hat, CentOS, Fedora |
+| `.apk`         | Alpine                  |
+| `.pkg.tar.zst` | Arch Linux              |
+
+Download the appropriate package from the [GitHub Releases](https://github.com/admiral-io/admiral-cli/releases) page and install with your package manager:
+
+```bash
+# Debian/Ubuntu
+sudo dpkg -i admiral_*.deb
+
+# Red Hat/CentOS/Fedora
+sudo rpm -i admiral_*.rpm
+
+# Alpine
+sudo apk add --allow-untrusted admiral_*.apk
+```
+
+#### Direct download
+
+Download the binary archive for your architecture from [GitHub Releases](https://github.com/admiral-io/admiral-cli/releases):
+
+```bash
+# Example for Linux x86_64
+curl -Lo admiral.tar.gz https://github.com/admiral-io/admiral-cli/releases/latest/download/admiral_linux_x86_64.tar.gz
+tar xzf admiral.tar.gz
+sudo mv admiral /usr/local/bin/
+```
+
+Shell completions are included in the archive and in all packages.
+
+</Tab>
+
+<Tab value="Docker">
+
+Run the CLI from a container image:
+
+```bash
+docker run --rm ghcr.io/admiral-io/admiral:latest version
+```
+
+The image is a non-root distroless build, available for `linux/amd64` and `linux/arm64`.
+
+</Tab>
+
+<Tab value="From source">
+
+Requires Go 1.26+:
+
+```bash
+git clone https://github.com/admiral-io/admiral-cli.git
+cd admiral-cli
+make build
+```
+
+The binary is written to `dist/`. To install directly to your `$GOPATH/bin`:
+
+```bash
+make install
+```
+
+</Tab>
+
+</Tabs>
+
+## Verify installation
+
+```bash
+admiral version
+```
+
+## Configuration
+
+The CLI reads configuration from a local config directory and supports overrides via flags and environment variables.
+
+### Setting the server and token
+
+Connect the CLI to your Admiral instance:
+
+```bash
+admiral config set server admiral.example.com:443
+admiral config set token
+```
+
+The `token` command prompts interactively so the value is not written to shell history. You can also set the token via environment variable:
+
+```bash
+export ADMIRAL_TOKEN="admp_..."
+```
+
+### Configuration keys
+
+| Key         | Description                       | Default |
+| ----------- | --------------------------------- | ------- |
+| `server`    | Admiral API server address        | none    |
+| `token`     | Authentication token (PAT or SAT) | none    |
+| `output`    | Default output format             | `table` |
+| `insecure`  | Skip TLS certificate verification | `false` |
+| `plaintext` | Disable TLS entirely (dev only)   | `false` |
+
+### Managing configuration
+
+```bash
+# Set a value
+admiral config set output json
+
+# Get a value
+admiral config get server
+
+# List all settings
+admiral config list
+
+# Remove a setting
+admiral config unset insecure
+```
+
+## Global flags
+
+These flags are available on every command and override config file values:
+
+| Flag           | Short | Description                                    |
+| -------------- | ----- | ---------------------------------------------- |
+| `--server`     | `-s`  | API server address                             |
+| `--output`     | `-o`  | Output format: `table`, `json`, `yaml`, `wide` |
+| `--insecure`   | `-i`  | Skip TLS certificate verification              |
+| `--plaintext`  |       | Disable TLS                                    |
+| `--verbose`    | `-v`  | Enable debug logging                           |
+| `--config-dir` |       | Override config directory path                 |
+
+## Shell completions
+
+If you installed via Homebrew, Scoop, or a Linux package, shell completions are set up automatically. To generate them manually:
+
+```bash
+# Bash
+admiral completion bash > /usr/share/bash-completion/completions/admiral
+
+# Zsh
+admiral completion zsh > "${fpath[1]}/_admiral"
+
+# Fish
+admiral completion fish > ~/.config/fish/completions/admiral.fish
+```

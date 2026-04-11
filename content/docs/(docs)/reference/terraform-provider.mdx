@@ -3,6 +3,143 @@ title: Terraform Provider
 description: Manage Admiral resources through Terraform
 ---
 
-Use the provider to represent Admiral resources in Terraform state and workflows.
+The Admiral Terraform provider lets you declare and manage Admiral resources as part of your infrastructure-as-code workflows. Use it to create applications, configure environments, and integrate Admiral into your existing Terraform pipelines.
 
-Detailed resource-level docs are in progress.
+<Callout type="info">
+  The provider is under active development. Available resources and their
+  schemas may change between releases. The [provider
+  repository](https://github.com/admiral-io/terraform-provider-admiral) is the
+  source of truth for current resource documentation.
+</Callout>
+
+## Installation
+
+Add the provider to your Terraform configuration:
+
+```hcl
+terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    admiral = {
+      source  = "admiral-io/admiral"
+      version = "~> 0.1"
+    }
+  }
+}
+```
+
+Then run:
+
+```bash
+terraform init
+```
+
+## Provider configuration
+
+```hcl
+provider "admiral" {
+  host  = "admiral.example.com:443"
+  token = var.admiral_token
+}
+```
+
+| Attribute  | Type    | Required | Default                   | Description                                                              |
+| none-------- | none----- | none------ | none----------------------- | none---------------------------------------------------------------------- |
+| `host`     | String  | No       | `admiral.example.com:443` | Admiral API address. Port 443 is appended automatically if omitted       |
+| `token`    | String  | Yes      | none                        | API authentication token (sensitive). Also reads `ADMIRAL_TOKEN` env var |
+| `insecure` | Boolean | No       | `false`                   | Skip TLS certificate verification                                        |
+
+### Using environment variables
+
+For CI/CD and shared configurations, set credentials via environment variables instead of hardcoding them:
+
+```bash
+export ADMIRAL_HOST="admiral.example.com:443"
+export ADMIRAL_TOKEN="admp_..."
+```
+
+```hcl
+# No explicit host or token needed when env vars are set
+provider "admiral" {}
+```
+
+## Example usage
+
+### Create an application
+
+```hcl
+resource "admiral_application" "payments" {
+  name        = "payment-service"
+  description = "Payment processing microservice"
+
+  labels = {
+    team = "backend"
+    tier = "critical"
+  }
+}
+
+output "app_id" {
+  value = admiral_application.payments.id
+}
+```
+
+### Look up an existing application
+
+```hcl
+# By name
+data "admiral_application" "existing" {
+  name = "payment-service"
+}
+
+# By ID
+data "admiral_application" "by_id" {
+  id = "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### Manage multiple applications
+
+```hcl
+variable "applications" {
+  type = map(object({
+    description = string
+    labels      = map(string)
+  }))
+  default = {
+    "auth-service" = {
+      description = "Authentication and authorization"
+      labels      = { team = "platform", tier = "critical" }
+    }
+    "api-gateway" = {
+      description = "Public API gateway"
+      labels      = { team = "platform", tier = "critical" }
+    }
+    "worker" = {
+      description = "Background job processing"
+      labels      = { team = "backend", tier = "standard" }
+    }
+  }
+}
+
+resource "admiral_application" "apps" {
+  for_each = var.applications
+
+  name        = each.key
+  description = each.value.description
+  labels      = each.value.labels
+}
+```
+
+### Import existing resources
+
+Import an application into Terraform state using its UUID:
+
+```bash
+terraform import admiral_application.payments 550e8400-e29b-41d4-a716-446655440000
+```
+
+## Further reading
+
+- [Provider source and full resource docs](https://github.com/admiral-io/terraform-provider-admiral). The repository README and `docs/` directory contain the most current schema documentation.
+- [Terraform Registry](https://registry.terraform.io/providers/admiral-io/admiral). Published provider with generated documentation.

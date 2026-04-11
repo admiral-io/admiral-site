@@ -1,15 +1,87 @@
 ---
 title: Prerequisites
-description: Dependencies required before first deployment
+description: Tools and services required before deploying Admiral
 ---
 
-## Required services
+Admiral has two deployment profiles, **demo** and **production**, each with different prerequisites. Start with demo mode to evaluate the platform, then graduate to production when you're ready.
 
-- PostgreSQL
-- Object storage (S3-compatible, S3, or GCS)
+## Demo mode prerequisites
 
-## Required capabilities
+Demo mode uses [KinD](https://kind.sigs.k8s.io/) (Kubernetes in Docker) and built-in subcharts for PostgreSQL, MinIO, and Dex. Everything runs on your local machine with a single command.
 
-- Ability to deploy Helm charts and/or containers
-- Network access between Admiral and dependencies
-- Cluster access for agent installation
+### Required tools
+
+| Tool | Minimum version | Purpose |
+|------|-----------------|---------|
+| [Docker](https://docs.docker.com/get-docker/) | 20.10+ | Container runtime for KinD |
+| [KinD](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) | 0.20+ | Local Kubernetes cluster |
+| [Helm](https://helm.sh/docs/intro/install/) | 3.12+ | Chart installation |
+| [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.28+ | Cluster interaction |
+
+### Resource requirements
+
+A demo cluster runs comfortably on a laptop with:
+
+- **CPU**: 2 cores available to Docker
+- **Memory**: 4 GB available to Docker
+- **Disk**: 2 GB free for images and persistent volumes
+
+### Network requirements
+
+Demo mode uses [nip.io](https://nip.io) for DNS resolution, mapping `admiral.127.0.0.1.nip.io` to `127.0.0.1`. Your machine must be able to resolve `*.nip.io` hostnames. If your network blocks wildcard DNS, you can add a manual `/etc/hosts` entry:
+
+```
+127.0.0.1 admiral.127.0.0.1.nip.io
+```
+
+Ports **80** and **443** on localhost must be available for the ingress controller.
+
+---
+
+## Production prerequisites
+
+Production deployments connect Admiral to your own externally managed services.
+
+### Kubernetes cluster
+
+- Kubernetes **1.28+** (tested through 1.32)
+- Helm 3.12+
+- An ingress controller (NGINX, Traefik, etc.) or Gateway API implementation
+- TLS termination configured at the ingress layer
+
+### PostgreSQL
+
+- PostgreSQL **14+** (15 or 16 recommended)
+- A dedicated database and user with full DDL privileges (Admiral runs schema migrations automatically)
+- Connection credentials available as a Kubernetes Secret or inline values
+- SSL/TLS recommended for production connections
+
+### Object storage
+
+One of the following:
+
+| Backend | Requirements |
+|---------|--------------|
+| **S3-compatible** (MinIO, Ceph, etc.) | Endpoint URL, access key, secret key |
+| **AWS S3** | Region, bucket names, IAM credentials or IRSA |
+| **Google Cloud Storage** | Project ID, service account JSON key |
+
+Admiral uses two buckets (`manifests` and `revisions`) which you must create in advance. Bucket names are configurable.
+
+### OIDC identity provider
+
+Admiral authenticates users through OpenID Connect. In production, connect to your organization's identity provider:
+
+- Any OIDC-compliant provider (Okta, Auth0, Azure AD, Google Workspace, Keycloak, etc.)
+- A registered client application with `authorization_code` grant type
+- Client ID, client secret, and issuer URL
+- Redirect URL set to `https://<your-admiral-host>/api/v1/auth/callback`
+
+<Callout type="info">
+You can also run the built-in Dex provider in production as a lightweight IdP, though most teams prefer to integrate with their existing identity system.
+</Callout>
+
+### DNS and TLS
+
+- A DNS record pointing to your ingress or load balancer
+- A TLS certificate for your Admiral hostname (use cert-manager or bring your own)

@@ -12,6 +12,12 @@ html > body[data-scroll-locked] {
   --removed-body-scroll-bar-size: 0px !important;
 }
 
+/* ─── Docs Page ─── */
+
+#nd-page > .prose + div {
+  margin-top: 1.5rem;
+}
+
 /* ─── Landing Page ─── */
 
 .landing-page {

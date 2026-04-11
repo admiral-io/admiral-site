@@ -1,18 +1,271 @@
 ---
 title: Object Storage
-description: Configure artifact and bundle storage backends
+description: Configure and manage artifact storage backends for Admiral
 ---
 
-Admiral uses object storage for persistent artifacts and generated bundle data.
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-## Supported backend classes
+Admiral uses object storage to persist deployment manifests and revision bundles. These artifacts are the source of truth for what gets deployed to your clusters.
 
-- S3-compatible object stores.
-- AWS S3.
-- Google Cloud Storage (GCS).
+## Buckets
 
-## Guidance
+Admiral requires two buckets:
 
-- Use environment-specific buckets/prefixes.
-- Enable encryption, versioning, and lifecycle policies.
-- Ensure credentials are scoped to least privilege.
+| Bucket | Default name | Contents |
+|--------|-------------|----------|
+| **Manifests** | `manifests` | Kubernetes manifests, Helm charts, and raw deployment artifacts |
+| **Revisions** | `revisions` | Versioned bundles generated during the deployment pipeline |
+
+Bucket names are configurable:
+
+```yaml
+buckets:
+  manifests: "myorg-admiral-manifests"
+  revisions: "myorg-admiral-revisions"
+```
+
+Create both buckets before installing Admiral. The chart does not create buckets automatically in production mode (though the MinIO subchart in demo mode does).
+
+## Authentication
+
+Admiral supports multiple approaches for authenticating to object storage. The recommended approach is to avoid static credentials entirely and use your cloud platform's native identity mechanisms instead.
+
+### Cloud-native identity (recommended)
+
+When no explicit credentials are provided, Admiral relies on the cloud provider's **default credential chain** to authenticate. This means Admiral automatically picks up credentials from the environment it runs in, with no static keys to manage, rotate, or risk leaking.
+
+How this works depends on where Admiral is running:
+
+| Environment | How credentials are resolved |
+|-------------|------------------------------|
+| **EKS** | IRSA (service account annotation) or EKS Pod Identity |
+| **EC2 / ECS** | Instance profile or task role via the EC2 metadata service |
+| **GKE** | Workload Identity Federation (service account annotation) |
+| **GCE** | Attached service account via the metadata server |
+
+In all of these cases, the AWS or GCP SDK resolves credentials automatically. You only need to ensure the IAM role or service account has the right permissions on the Admiral buckets.
+
+<Tabs items={["AWS (IRSA / EKS Pod Identity)", "AWS (EC2 instance profile)", "GCP (GKE Workload Identity)"]}>
+
+<Tab value="AWS (IRSA / EKS Pod Identity)">
+
+On EKS, use [IAM Roles for Service Accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) or [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) to grant Admiral access to S3 without static credentials.
+
+1. Create an IAM role with a policy scoped to the Admiral buckets
+2. Annotate the Admiral service account with the role ARN
+3. Omit the credentials secret from your values
+
+```yaml
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/admiral-s3-role"
+
+objectStorage:
+  type: s3
+  s3:
+    endpoint: "https://s3.us-east-1.amazonaws.com"
+    region: "us-east-1"
+    useSSL: true
+    # No existingSecret needed. The SDK picks up credentials from the pod's
+    # projected service account token automatically.
+```
+
+The IAM policy should grant at minimum:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "s3:GetObject",
+    "s3:PutObject",
+    "s3:DeleteObject",
+    "s3:ListBucket"
+  ],
+  "Resource": [
+    "arn:aws:s3:::myorg-admiral-manifests",
+    "arn:aws:s3:::myorg-admiral-manifests/*",
+    "arn:aws:s3:::myorg-admiral-revisions",
+    "arn:aws:s3:::myorg-admiral-revisions/*"
+  ]
+}
+```
+
+</Tab>
+
+<Tab value="AWS (EC2 instance profile)">
+
+When Admiral runs on EC2 (or ECS), the AWS SDK automatically resolves credentials from the [instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) or task role attached to the compute resource. No service account annotations or static keys are needed.
+
+1. Create an IAM role with a policy scoped to the Admiral buckets (same policy as the IRSA example)
+2. Attach the role to the EC2 instance or ECS task definition
+3. Omit the credentials secret from your values
+
+```yaml
+objectStorage:
+  type: s3
+  s3:
+    endpoint: "https://s3.us-east-1.amazonaws.com"
+    region: "us-east-1"
+    useSSL: true
+    # No existingSecret needed. The SDK resolves credentials from the
+    # EC2 instance metadata service automatically.
+
+buckets:
+  manifests: "myorg-admiral-manifests"
+  revisions: "myorg-admiral-revisions"
+```
+
+This also applies to other environments that participate in the [AWS default credential provider chain](https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html), such as Lambda execution roles and ECS task roles.
+
+</Tab>
+
+<Tab value="GCP (GKE Workload Identity)">
+
+On GKE, use [Workload Identity Federation](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) to let Admiral access GCS using a Google Cloud service account without exporting a key file.
+
+1. Create a Google Cloud service account with `roles/storage.objectAdmin` on the Admiral buckets
+2. Bind the Kubernetes service account to the Google Cloud service account
+3. Annotate the Admiral service account
+4. Omit the credentials secret from your values
+
+```yaml
+serviceAccount:
+  annotations:
+    iam.gke.io/gcp-service-account: "admiral@my-project.iam.gserviceaccount.com"
+
+objectStorage:
+  type: gcs
+  gcs:
+    projectId: "my-project"
+    # No existingSecret needed. The SDK picks up credentials from the
+    # GKE metadata server automatically.
+```
+
+Bind the service accounts:
+
+```bash
+gcloud iam service-accounts add-iam-policy-binding \
+  admiral@my-project.iam.gserviceaccount.com \
+  --role roles/iam.workloadIdentityUser \
+  --member "serviceAccount:my-project.svc.id.goog[admiral/admiral]"
+```
+
+</Tab>
+
+</Tabs>
+
+### Static credentials
+
+If workload identity is not available (self-hosted clusters, S3-compatible stores like MinIO or Ceph), use static access keys stored in a Kubernetes Secret.
+
+<Tabs items={["AWS S3", "Google Cloud Storage", "S3-compatible"]}>
+
+<Tab value="AWS S3">
+
+```yaml
+objectStorage:
+  type: s3
+  s3:
+    endpoint: "https://s3.us-east-1.amazonaws.com"
+    region: "us-east-1"
+    useSSL: true
+    existingSecret: "admiral-s3-credentials"
+    accessKeyKey: "access-key"
+    secretKeyKey: "secret-key"
+```
+
+<Callout type="info">
+Static IAM access keys work but are not recommended for production on EKS. Use IRSA or EKS Pod Identity instead. See the cloud-native identity section above.
+</Callout>
+
+</Tab>
+
+<Tab value="Google Cloud Storage">
+
+```yaml
+objectStorage:
+  type: gcs
+  gcs:
+    projectId: "my-gcp-project"
+    existingSecret: "admiral-gcs-credentials"
+    credentialsKey: "credentials.json"
+```
+
+Create the credentials secret from a service account key file:
+
+```bash
+kubectl create secret generic admiral-gcs-credentials \
+  --namespace admiral \
+  --from-file=credentials.json=./service-account.json
+```
+
+<Callout type="info">
+Exported service account keys are long-lived and must be rotated manually. On GKE, use Workload Identity Federation instead. See the cloud-native identity section above.
+</Callout>
+
+</Tab>
+
+<Tab value="S3-compatible">
+
+For MinIO, Ceph, or any S3-compatible endpoint:
+
+```yaml
+objectStorage:
+  type: s3
+  s3:
+    endpoint: "https://minio.internal:9000"
+    region: "us-east-1"
+    useSSL: true
+    existingSecret: "admiral-s3-credentials"
+    accessKeyKey: "access-key"
+    secretKeyKey: "secret-key"
+```
+
+Create the credentials secret:
+
+```bash
+kubectl create secret generic admiral-s3-credentials \
+  --namespace admiral \
+  --from-literal=access-key='AKIAEXAMPLE' \
+  --from-literal=secret-key='your-secret-key'
+```
+
+</Tab>
+
+</Tabs>
+
+## Demo mode (MinIO subchart)
+
+In demo mode, the chart deploys MinIO as a subchart and auto-creates the required buckets:
+
+```yaml
+minio:
+  enabled: true
+  rootPassword: "shipitnow"
+  persistence: 512Mi
+```
+
+The MinIO subchart provisions both `manifests` and `revisions` buckets with `policy: none` (private access). This is suitable for evaluation only. Data does not survive cluster deletion.
+
+## Production recommendations
+
+### Access control
+
+- Use workload identity (IRSA or GKE Workload Identity) wherever possible. It eliminates static credentials entirely and provides automatic rotation.
+- When using static credentials, scope them to the minimum required permissions: `GetObject`, `PutObject`, `DeleteObject`, and `ListBucket` on the two Admiral buckets only.
+- Rotate static credentials on a regular schedule and update the Kubernetes Secret accordingly.
+
+### Encryption
+
+- Enable server-side encryption (SSE-S3 or SSE-KMS for AWS, CMEK for GCS).
+- Use TLS for all connections to the storage endpoint (`useSSL: true`).
+
+### Versioning and lifecycle
+
+- Enable bucket versioning to protect against accidental deletion.
+- Configure lifecycle rules to expire old object versions after a retention period that matches your compliance requirements.
+
+### Backup
+
+- Object storage is the canonical store for deployment artifacts. Include both buckets in your backup strategy.
+- Cross-region replication adds resilience for critical environments.

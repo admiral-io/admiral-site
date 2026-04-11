@@ -1,16 +1,574 @@
 ---
 title: Server Deployment
-description: Plan and roll out Admiral server safely
+description: Configure and deploy Admiral for production environments
 ---
 
-## Recommended sequence
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-1. Prepare database and object storage.
-2. Apply configuration values.
-3. Deploy server.
-4. Run migrations and verify readiness.
+This guide covers deploying Admiral to a production Kubernetes cluster with externally managed services. If you haven't tried Admiral yet, start with the [demo mode walkthrough](/docs/quick-start/install-server) first.
 
-## Delivery options
+## Production vs demo
 
-- Helm-managed deployment
-- Container-managed deployment
+In demo mode, PostgreSQL, MinIO, and Dex all run as in-cluster subcharts. This is convenient for evaluation but not suitable for production workloads. A production deployment replaces these with externally managed services:
+
+| Concern | Demo | Production |
+|---------|------|------------|
+| Database | PostgreSQL subchart (ephemeral) | Managed PostgreSQL (RDS, Cloud SQL, etc.) |
+| Object storage | MinIO subchart (ephemeral) | S3, S3-compatible, or GCS |
+| Authentication | Dex with static user | Your organization's OIDC provider |
+| Ingress | NGINX on localhost | Ingress controller or Gateway API with TLS |
+| Logging | `debug` level | `error` or `warn` |
+| Scaling | Single replica | HPA with multiple replicas |
+
+## Deployment sequence
+
+<Steps>
+
+### Provision external services
+
+Before installing the chart, set up:
+
+1. **PostgreSQL**: create a database and user with DDL privileges
+2. **Object storage**: create the `manifests` and `revisions` buckets
+3. **OIDC provider**: register an Admiral client application
+4. **DNS and TLS**: point a hostname at your ingress and provision a certificate
+
+### Prepare your values file
+
+Create a `values.yaml` tailored to your environment. The sections below cover each component.
+
+### Install the chart
+
+```bash
+helm repo add admiral https://charts.admiral.io
+helm repo update
+
+helm upgrade --install admiral admiral/admiral \
+  -f values.yaml \
+  --namespace admiral \
+  --create-namespace \
+  --wait \
+  --timeout 5m
+```
+
+### Verify
+
+```bash
+kubectl get pods -n admiral
+kubectl logs -n admiral deployment/admiral -f
+```
+
+Confirm the migration job completed and the server is healthy:
+
+```bash
+curl -s https://admiral.example.com/healthz
+curl -s https://admiral.example.com/readyz
+```
+
+</Steps>
+
+---
+
+## Component configuration
+
+### Database (PostgreSQL)
+
+Admiral stores all platform state (environments, deployments, cluster registrations, and tokens) in PostgreSQL. The chart validates at render time that you've configured either the built-in subchart or an external connection.
+
+#### External database
+
+```yaml
+# Disable the built-in subchart
+postgresql:
+  enabled: false
+
+# Point to your managed instance
+externalDatabase:
+  host: "admiral-db.abc123.us-east-1.rds.amazonaws.com"
+  port: 5432
+  database: "admiral"
+  user: "admiral"
+  password: "your-secure-password"
+  sslMode: "require"
+```
+
+For production, store the password in a Kubernetes Secret rather than inline:
+
+```yaml
+externalDatabase:
+  host: "admiral-db.abc123.us-east-1.rds.amazonaws.com"
+  port: 5432
+  database: "admiral"
+  user: "admiral"
+  existingSecret: "admiral-db-credentials"
+  existingSecretKey: "password"
+  sslMode: "require"
+```
+
+Create the secret:
+
+```bash
+kubectl create secret generic admiral-db-credentials \
+  --namespace admiral \
+  --from-literal=password='your-secure-password'
+```
+
+<Callout type="info">
+Admiral runs schema migrations automatically as a Helm pre-install/pre-upgrade hook. The database user must have privileges to create and alter tables. See [Database Migrations](/docs/operations/database-migrations) for details on migration modes.
+</Callout>
+
+---
+
+### Object storage
+
+Admiral persists deployment manifests and revision bundles in object storage. Two buckets are required. Their names default to `manifests` and `revisions` but are configurable.
+
+<Callout type="info">
+Avoid static credentials when possible. Admiral supports the cloud provider's default credential chain, including IRSA, EKS Pod Identity, EC2 instance profiles, and GKE Workload Identity. See [Object Storage](/docs/operations/object-storage) for detailed setup instructions.
+</Callout>
+
+<Tabs items={["AWS S3 (workload identity)", "AWS S3 (static keys)", "GCS (workload identity)", "GCS (static keys)", "S3-compatible"]}>
+
+<Tab value="AWS S3 (workload identity)">
+
+Recommended for EKS. Annotate the service account with your IAM role and omit the credentials secret:
+
+```yaml
+minio:
+  enabled: false
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/admiral-s3-role"
+
+objectStorage:
+  type: s3
+  s3:
+    endpoint: "https://s3.us-east-1.amazonaws.com"
+    region: "us-east-1"
+    useSSL: true
+
+buckets:
+  manifests: "my-org-admiral-manifests"
+  revisions: "my-org-admiral-revisions"
+```
+
+</Tab>
+
+<Tab value="AWS S3 (static keys)">
+
+```yaml
+minio:
+  enabled: false
+
+objectStorage:
+  type: s3
+  s3:
+    endpoint: "https://s3.us-east-1.amazonaws.com"
+    region: "us-east-1"
+    useSSL: true
+    existingSecret: "admiral-s3-credentials"
+    accessKeyKey: "access-key"
+    secretKeyKey: "secret-key"
+
+buckets:
+  manifests: "my-org-admiral-manifests"
+  revisions: "my-org-admiral-revisions"
+```
+
+</Tab>
+
+<Tab value="GCS (workload identity)">
+
+Recommended for GKE. Annotate the service account and omit the credentials secret:
+
+```yaml
+minio:
+  enabled: false
+
+serviceAccount:
+  annotations:
+    iam.gke.io/gcp-service-account: "admiral@my-project.iam.gserviceaccount.com"
+
+objectStorage:
+  type: gcs
+  gcs:
+    projectId: "my-gcp-project"
+
+buckets:
+  manifests: "my-org-admiral-manifests"
+  revisions: "my-org-admiral-revisions"
+```
+
+</Tab>
+
+<Tab value="GCS (static keys)">
+
+```yaml
+minio:
+  enabled: false
+
+objectStorage:
+  type: gcs
+  gcs:
+    projectId: "my-gcp-project"
+    existingSecret: "admiral-gcs-credentials"
+    credentialsKey: "credentials.json"
+
+buckets:
+  manifests: "my-org-admiral-manifests"
+  revisions: "my-org-admiral-revisions"
+```
+
+Create the credentials secret from a service account key file:
+
+```bash
+kubectl create secret generic admiral-gcs-credentials \
+  --namespace admiral \
+  --from-file=credentials.json=./service-account.json
+```
+
+</Tab>
+
+<Tab value="S3-compatible">
+
+For MinIO, Ceph, or any S3-compatible endpoint:
+
+```yaml
+minio:
+  enabled: false
+
+objectStorage:
+  type: s3
+  s3:
+    endpoint: "https://minio.internal:9000"
+    region: "us-east-1"
+    useSSL: true
+    existingSecret: "admiral-s3-credentials"
+    accessKeyKey: "access-key"
+    secretKeyKey: "secret-key"
+
+buckets:
+  manifests: "admiral-manifests"
+  revisions: "admiral-revisions"
+```
+
+Create the credentials secret:
+
+```bash
+kubectl create secret generic admiral-s3-credentials \
+  --namespace admiral \
+  --from-literal=access-key='AKIAEXAMPLE' \
+  --from-literal=secret-key='your-secret-key'
+```
+
+</Tab>
+
+</Tabs>
+
+See [Object Storage](/docs/operations/object-storage) for bucket lifecycle, encryption, and credential management guidance.
+
+---
+
+### Authentication (OIDC)
+
+Admiral authenticates users via OpenID Connect. In production, connect to your organization's identity provider instead of using the built-in Dex instance.
+
+#### External OIDC provider
+
+```yaml
+# Disable the built-in Dex
+dex:
+  enabled: false
+
+oauth2:
+  issuer: "https://login.example.com"
+  clientId: "admiral"
+  existingSecret: "admiral-oidc-credentials"
+  scopes: "openid,offline_access,email,profile"
+  redirectUrl: "https://admiral.example.com/api/v1/auth/callback"
+  refreshTokenTTL: "12h"
+```
+
+The existing secret must contain two keys:
+
+```bash
+kubectl create secret generic admiral-oidc-credentials \
+  --namespace admiral \
+  --from-literal=client-secret='your-oidc-client-secret' \
+  --from-literal=signing-secret='a-random-32-char-string-for-jwt'
+```
+
+#### Provider-specific notes
+
+| Provider | Issuer URL format | Notes |
+|----------|-------------------|-------|
+| **Okta** | `https://your-org.okta.com` | Create a "Web Application" with authorization code flow |
+| **Azure AD** | `https://login.microsoftonline.com/{tenant-id}/v2.0` | Register an app in Azure Portal, add redirect URI |
+| **Google Workspace** | `https://accounts.google.com` | Configure in Google Cloud Console → APIs & Services → Credentials |
+| **Keycloak** | `https://keycloak.example.com/realms/{realm}` | Create a client with "Standard flow" enabled |
+| **Auth0** | `https://your-tenant.auth0.com/` | Create a Regular Web Application |
+
+#### Using Dex in production
+
+If you don't have an existing IdP, Dex can serve as a lightweight OIDC provider. Enable it and configure upstream connectors to LDAP, SAML, GitHub, etc.:
+
+```yaml
+dex:
+  enabled: true
+```
+
+When Dex is enabled, the chart auto-configures the issuer URL and redirect URI based on your ingress hostname. See the [Dex documentation](https://dexidp.io/docs/) for connector configuration.
+
+See [Authentication Model](/docs/guides/authentication-model) for details on token types and access control.
+
+---
+
+### Session management
+
+Control how user sessions behave:
+
+```yaml
+session:
+  idleTimeout: "30m"    # Log out after 30 minutes of inactivity
+  lifetime: "24h"       # Maximum session duration regardless of activity
+  cookie:
+    httpOnly: true       # Prevent JavaScript access to session cookies
+    sameSite: "lax"      # CSRF protection
+    secure: true         # Require HTTPS (set to true when using TLS)
+```
+
+<Callout type="warn">
+Set `session.cookie.secure: true` whenever your deployment uses TLS. The default is `false` to support the HTTP-only demo mode.
+</Callout>
+
+---
+
+### Ingress
+
+Admiral supports both traditional Kubernetes Ingress and the newer Gateway API.
+
+<Tabs items={["Ingress", "Gateway API"]}>
+
+<Tab value="Ingress">
+
+```yaml
+ingress:
+  enabled: true
+  className: nginx   # or traefik, haproxy, etc.
+  host: "admiral.example.com"
+  tls:
+    enabled: true
+    secretName: "admiral-tls"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+```
+
+When Dex is enabled, the ingress template automatically adds a rule to route `/dex` paths to the Dex service.
+
+</Tab>
+
+<Tab value="Gateway API">
+
+```yaml
+ingress:
+  enabled: false
+
+httpRoute:
+  enabled: true
+  hostnames:
+    - "admiral.example.com"
+  parentRefs:
+    - name: my-gateway
+      namespace: gateway-system
+```
+
+Requires Gateway API CRDs installed in your cluster.
+
+</Tab>
+
+</Tabs>
+
+---
+
+### Server tuning
+
+```yaml
+server:
+  port: 8080
+  logLevel: "error"        # error, warn, info, debug
+  enablePprof: false       # Go profiling endpoint (disable in prod)
+
+  timeouts:
+    default: "15s"         # Default request timeout
+
+  stats:
+    reporterType: prometheus   # Metrics backend
+```
+
+### Scaling and availability
+
+```yaml
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+pdb:
+  create: true
+  minAvailable: 1
+```
+
+### Monitoring
+
+If you run the Prometheus Operator, enable the ServiceMonitor to scrape Admiral metrics:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  interval: "30s"
+  path: "/stats/prometheus"
+```
+
+### Network policies
+
+Lock down traffic to only what Admiral needs:
+
+```yaml
+networkPolicy:
+  enabled: true
+  allowExternal: false
+  allowExternalEgress: false
+```
+
+When `allowExternalEgress` is `false`, the chart automatically allows egress to DNS (port 53), PostgreSQL (5432), MinIO (9000), and Dex (5556).
+
+---
+
+## Complete production example
+
+Here's a full `values.yaml` combining the sections above:
+
+```yaml
+ingress:
+  enabled: true
+  className: nginx
+  host: "admiral.example.com"
+  tls:
+    enabled: true
+    secretName: "admiral-tls"
+
+server:
+  logLevel: "warn"
+  enablePprof: false
+
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+pdb:
+  create: true
+  minAvailable: 1
+
+# --- External database ---
+postgresql:
+  enabled: false
+
+externalDatabase:
+  host: "admiral-db.abc123.us-east-1.rds.amazonaws.com"
+  port: 5432
+  database: "admiral"
+  user: "admiral"
+  existingSecret: "admiral-db-credentials"
+  existingSecretKey: "password"
+  sslMode: "require"
+
+# --- External object storage ---
+minio:
+  enabled: false
+
+objectStorage:
+  type: s3
+  s3:
+    endpoint: "https://s3.us-east-1.amazonaws.com"
+    region: "us-east-1"
+    useSSL: true
+    existingSecret: "admiral-s3-credentials"
+    accessKeyKey: "access-key"
+    secretKeyKey: "secret-key"
+
+buckets:
+  manifests: "myorg-admiral-manifests"
+  revisions: "myorg-admiral-revisions"
+
+# --- External OIDC ---
+dex:
+  enabled: false
+
+oauth2:
+  issuer: "https://login.example.com"
+  clientId: "admiral"
+  existingSecret: "admiral-oidc-credentials"
+  scopes: "openid,offline_access,email,profile"
+  redirectUrl: "https://admiral.example.com/api/v1/auth/callback"
+
+# --- Session ---
+session:
+  idleTimeout: "30m"
+  lifetime: "24h"
+  cookie:
+    httpOnly: true
+    sameSite: "lax"
+    secure: true
+
+# --- Monitoring ---
+serviceMonitor:
+  enabled: true
+  interval: "30s"
+
+networkPolicy:
+  enabled: true
+  allowExternal: false
+```
+
+---
+
+## Helm chart validation
+
+The chart includes built-in validation that fails fast with clear error messages if your configuration is incomplete. You'll see errors like:
+
+```
+INSTALLATION FAILED:
+  admiral: database is required.
+  Either enable the built-in PostgreSQL (postgresql.enabled=true)
+  or configure an external database (externalDatabase.host).
+```
+
+The chart validates:
+- **Database**: either `postgresql.enabled` or `externalDatabase.host` must be set
+- **Object storage**: either `minio.enabled`, an S3 endpoint, or a GCS project ID must be set
+- **OIDC**: either `dex.enabled` or `oauth2.issuer` must be set
+- **External credentials**: secrets must be provided when using external services
+
+You can preview rendered templates before installing:
+
+```bash
+helm template admiral admiral/admiral -f values.yaml
+```
+
+---
+
+## What's next
+
+- [Database Migrations](/docs/operations/database-migrations). Understand how schema migrations run during upgrades.
+- [Object Storage](/docs/operations/object-storage). Bucket policies, encryption, and lifecycle configuration.
+- [Authentication Model](/docs/guides/authentication-model). Token types, scopes, and access control.
+- [Bootstrap First Cluster](/docs/quick-start/bootstrap-first-cluster). Connect your first Kubernetes cluster.
