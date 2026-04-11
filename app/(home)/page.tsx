@@ -7,7 +7,6 @@ import {
   FileCode2,
   AppWindow,
   ArrowRight,
-  Anchor,
   Unlock,
   Plug,
   History,
@@ -66,15 +65,10 @@ export default function HomePage() {
       </div>
 
       {/* Hero: full-viewport fold with asymmetric vertical space — less empty area below CTAs when scrolling than pure flex center */}
-      <section className="relative z-10 grid min-h-dvh grid-rows-[1fr_auto_minmax(0,0.5fr)] px-6 text-center">
+      <section className="relative z-10 grid min-h-dvh grid-rows-[minmax(5rem,0.4fr)_auto_minmax(0,0.5fr)] md:grid-rows-[0.65fr_auto_minmax(0,0.5fr)] px-6 text-center">
         <div className="min-h-0" aria-hidden />
         <div className="flex flex-col items-center">
-          <div className="landing-hero-badge">
-            <Anchor className="w-3.5 h-3.5" />
-            <span>Open Source Platform Orchestrator</span>
-          </div>
-
-          <h1 className="font-(family-name:--font-syne) font-bold text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-white tracking-tight mt-8 mb-6 leading-[0.95]">
+          <h1 className="font-(family-name:--font-syne) font-bold text-5xl md:text-6xl lg:text-7xl xl:text-8xl text-white tracking-tight mt-4 md:mt-8 mb-6 leading-[0.95]">
             Deploy with
             <br />
             <span className="landing-gradient-text">confidence.</span>
@@ -87,12 +81,12 @@ export default function HomePage() {
             a snapshot you can roll back.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <Link href="/docs" className="landing-btn-primary">
+          <div className="flex flex-col sm:flex-row gap-4 items-center w-full sm:w-auto max-w-xs sm:max-w-none">
+            <Link href="/docs" className="landing-btn-primary w-full sm:w-auto justify-center">
               Get Started
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <a href="#why" className="landing-btn-secondary">
+            <a href="#why" className="landing-btn-secondary w-full sm:w-auto justify-center">
               Why Admiral?
             </a>
           </div>
@@ -214,59 +208,67 @@ export default function HomePage() {
       <LandingSectionSeparator />
 
       {/* How It Works */}
-      <section className="relative z-10 max-w-4xl mx-auto px-6 py-28">
+      <section className="relative z-10 max-w-4xl mx-auto px-6 py-16 md:py-28">
         <AnimateOnScroll>
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <h2 className="font-(family-name:--font-syne) font-bold text-3xl sm:text-4xl text-white tracking-tight mb-4">
               How it works
             </h2>
           </div>
         </AnimateOnScroll>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <AnimateOnScroll delay={0}>
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-blue-400/30 bg-blue-400/10 text-blue-300 font-mono text-sm font-semibold mb-4">
-                1
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 md:gap-6">
+          {[
+            {
+              step: 1,
+              title: "Define",
+              description:
+                "Your application, its environments, and its configuration. Define once, layer environment-specific values on top.",
+              circleClass:
+                "border-blue-400/30 bg-blue-400/10 text-blue-300",
+              delay: 0,
+            },
+            {
+              step: 2,
+              title: "Connect",
+              description:
+                "IaC outputs to the workloads that depend on them. Admiral maintains the dependency graph so nothing gets lost between provisioning and deployment.",
+              circleClass:
+                "border-amber-400/30 bg-amber-400/10 text-amber-300",
+              delay: 150,
+            },
+            {
+              step: 3,
+              title: "Deploy",
+              description:
+                "To any environment. Every deployment produces a versioned, immutable snapshot you can roll back to at any time.",
+              circleClass:
+                "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
+              delay: 300,
+            },
+          ].map(({ step, title, description, circleClass, delay }, index) => (
+            <AnimateOnScroll key={step} delay={delay}>
+              <div className="text-center relative py-6 md:py-0">
+                {index > 0 && (
+                  <div
+                    className="absolute left-1/2 -translate-x-1/2 top-0 h-6 w-px bg-gradient-to-b from-transparent to-white/10 md:hidden"
+                    aria-hidden
+                  />
+                )}
+                <div
+                  className={`inline-flex items-center justify-center w-10 h-10 rounded-full border font-mono text-sm font-semibold mb-4 ${circleClass}`}
+                >
+                  {step}
+                </div>
+                <h3 className="font-(family-name:--font-syne) font-semibold text-lg text-white/95 mb-2">
+                  {title}
+                </h3>
+                <p className="text-sm leading-relaxed text-white/50">
+                  {description}
+                </p>
               </div>
-              <h3 className="font-(family-name:--font-syne) font-semibold text-lg text-white/95 mb-2">
-                Define
-              </h3>
-              <p className="text-sm leading-relaxed text-white/50">
-                Your application, its environments, and its configuration.
-                Define once, layer environment-specific values on top.
-              </p>
-            </div>
-          </AnimateOnScroll>
-          <AnimateOnScroll delay={150}>
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-300 font-mono text-sm font-semibold mb-4">
-                2
-              </div>
-              <h3 className="font-(family-name:--font-syne) font-semibold text-lg text-white/95 mb-2">
-                Connect
-              </h3>
-              <p className="text-sm leading-relaxed text-white/50">
-                IaC outputs to the workloads that depend on them. Admiral
-                maintains the dependency graph so nothing gets lost between
-                provisioning and deployment.
-              </p>
-            </div>
-          </AnimateOnScroll>
-          <AnimateOnScroll delay={300}>
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-emerald-400/30 bg-emerald-400/10 text-emerald-300 font-mono text-sm font-semibold mb-4">
-                3
-              </div>
-              <h3 className="font-(family-name:--font-syne) font-semibold text-lg text-white/95 mb-2">
-                Deploy
-              </h3>
-              <p className="text-sm leading-relaxed text-white/50">
-                To any environment. Every deployment produces a versioned,
-                immutable snapshot you can roll back to at any time.
-              </p>
-            </div>
-          </AnimateOnScroll>
+            </AnimateOnScroll>
+          ))}
         </div>
       </section>
 
@@ -343,14 +345,14 @@ export default function HomePage() {
             sales calls. Start deploying in minutes.
           </p>
         </AnimateOnScroll>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <Link href="/docs" className="landing-btn-primary">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full sm:w-auto max-w-xs sm:max-w-none mx-auto">
+          <Link href="/docs" className="landing-btn-primary w-full sm:w-auto justify-center">
             Read the Docs
             <ArrowRight className="w-4 h-4" />
           </Link>
           <a
             href="https://github.com/admiral-io/admiral"
-            className="landing-btn-secondary"
+            className="landing-btn-secondary w-full sm:w-auto justify-center"
             target="_blank"
             rel="noopener noreferrer"
           >
